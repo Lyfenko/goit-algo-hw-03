@@ -1,44 +1,42 @@
-import os
 import shutil
 import argparse
-from tqdm import tqdm
+from pathlib import Path
 
 
 class FileCopier:
     def __init__(self, src_dir, dest_dir='dist'):
-        self.src_dir = src_dir
-        self.dest_dir = dest_dir
+        self.src_dir = Path(src_dir)
+        self.dest_dir = Path(dest_dir)
 
     def copy_and_sort(self):
         try:
-            if not os.path.exists(self.dest_dir):
-                os.makedirs(self.dest_dir)
+            if not self.dest_dir.exists():
+                self.dest_dir.mkdir(parents=True)
 
-            file_count = sum(len(files) for _, _, files in os.walk(self.src_dir))
-            progress_bar = tqdm(total=file_count, desc='Copying files', unit='file')
+            self._recursive_copy_and_sort(self.src_dir)
 
-            for root, dirs, files in os.walk(self.src_dir):
-                for file in files:
-                    src_path = os.path.join(root, file)
-                    self._copy_file(src_path)
-                    progress_bar.update(1)
-
-            progress_bar.close()
         except KeyboardInterrupt:
             print("\nКопіювання перервано користувачем.")
 
+    def _recursive_copy_and_sort(self, src_path):
+        for src_item in src_path.iterdir():
+            if src_item.is_file():
+                self._copy_file(src_item)
+            elif src_item.is_dir():
+                self._recursive_copy_and_sort(src_item)
+
     def _copy_file(self, src_path):
         try:
-            extension = os.path.splitext(src_path)[-1].lower()
-            dest_subdir = os.path.join(self.dest_dir, extension[1:] if extension else 'other')
+            extension = src_path.suffix.lower()
+            dest_subdir = self.dest_dir / (extension[1:] if extension else 'other')
 
-            os.makedirs(dest_subdir, exist_ok=True)
-            dest_path = os.path.join(dest_subdir, os.path.basename(src_path))
+            dest_subdir.mkdir(parents=True, exist_ok=True)
+            dest_path = dest_subdir / src_path.name
 
             shutil.copy2(src_path, dest_path)
-            print(f"Файл {os.path.basename(src_path)} скопійовано у {dest_subdir}")
+            print(f"Файл {src_path.name} скопійовано у {dest_subdir}")
         except Exception as e:
-            print(f"Помилка копіювання {os.path.basename(src_path)}: {e}")
+            print(f"Помилка копіювання {src_path.name}: {e}")
 
 
 def parse_arguments():
